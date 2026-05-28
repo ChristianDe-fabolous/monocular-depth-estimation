@@ -16,21 +16,21 @@ Creates one submission CSV per model + a zip of all CSVs at the end.
 
 MODELS = [
     {
-        "name": "baseline1_zeroshot",
-        "mode": "zero_shot",
-        "ckpt_path": None,
-        "denormalize": False,
-    },
-    {
-        "name": "baseline2_full_head",
+        "name": "baseline3_full_head_00-05-19",
         "mode": "full_head",
-        "ckpt_path": "/work/scratch/cdeubel/outputs/baseline2/baseline2-full_head/checkpoints/best.pth",
+        "ckpt_path": "/work/scratch/cdeubel/models/baseline3-DA3MONO-LARGE-full_head-2026-05-29_00-05-19/checkpoints/best.pth",
         "denormalize": True,
     },
     {
-        "name": "model3",
+        "name": "baseline3_full_head_00-05-47",
         "mode": "full_head",
-        "ckpt_path": "/work/scratch/cdeubel/FILL_IN/best.pth",
+        "ckpt_path": "/work/scratch/cdeubel/models/baseline3-DA3MONO-LARGE-full_head-2026-05-29_00-05-47/checkpoints/best.pth",
+        "denormalize": True,
+    },
+    {
+        "name": "baseline3_full_head_00-09-52",
+        "mode": "full_head",
+        "ckpt_path": "/work/scratch/cdeubel/models/baseline3-DA3MONO-LARGE-full_head-2026-05-29_00-09-52/checkpoints/best.pth",
         "denormalize": True,
     },
 ]

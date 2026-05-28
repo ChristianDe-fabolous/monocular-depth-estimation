@@ -182,9 +182,10 @@ class DepthDataset(Dataset):
 
 
 def silog_loss(pred: torch.Tensor, target: torch.Tensor, lambda_: float = 0.5, eps: float = 1e-6) -> torch.Tensor:
+    pred, target = pred.float(), target.float()  # float16 variance term can go negative → NaN in sqrt
     valid = (target > eps) & (pred > eps)
     if valid.sum() == 0:
-        return pred.sum() * 0.0  # differentiable zero, avoids NaN
+        return pred.sum() * 0.0
     d = torch.log(pred[valid]) - torch.log(target[valid])
     return torch.sqrt((torch.mean(d ** 2) - lambda_ * torch.mean(d) ** 2).clamp(min=1e-8))
 

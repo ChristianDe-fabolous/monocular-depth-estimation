@@ -11,7 +11,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.amp import GradScaler, autocast
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 from torch.utils.data import Dataset, DataLoader, Subset
 import torchvision.transforms as T
 import torchvision.transforms.functional as TF
@@ -47,6 +47,7 @@ EPOCHS       = 3
 LR           = 1e-6
 WEIGHT_DECAY = 1e-2
 GRAD_CLIP    = 1.0
+WARMUP_STEPS = 100
 VAL_SPLIT    = 0.1
 NUM_WORKERS  = 0
 AMP          = True
@@ -182,6 +183,8 @@ class DepthDataset(Dataset):
 
 def silog_loss(pred: torch.Tensor, target: torch.Tensor, lambda_: float = 0.5, eps: float = 1e-6) -> torch.Tensor:
     valid = (target > eps) & (pred > eps)
+    if valid.sum() == 0:
+        return pred.sum() * 0.0  # differentiable zero, avoids NaN
     d = torch.log(pred[valid]) - torch.log(target[valid])
     return torch.sqrt((torch.mean(d ** 2) - lambda_ * torch.mean(d) ** 2).clamp(min=1e-8))
 
@@ -228,11 +231,11 @@ def forward_train(model: DepthAnything3, images: torch.Tensor) -> torch.Tensor:
     depth = out["depth"] if isinstance(out, dict) else out
     if depth.dim() == 3:
         depth = depth.unsqueeze(1)
-    return F.interpolate(depth, size=(IMG_SIZE, IMG_SIZE), mode="bilinear", align_corners=False).clamp(0.0, 1.0)
+    return F.interpolate(depth, size=(IMG_SIZE, IMG_SIZE), mode="bilinear", align_corners=False).clamp(1e-6, 1.0)
 
 
 # Train for one epoch
-def train_one_epoch(model, loader, optimizer, scaler, device, epoch: int) -> float:
+def train_one_epoch(model, loader, optimizer, scaler, scheduler, device, epoch: int) -> float:
     model.train()
     if MODE in ("full_head", "scratch_head"):
         model.model.backbone.eval()  # frozen backbone stays in eval mode (no dropout)
@@ -248,11 +251,13 @@ def train_one_epoch(model, loader, optimizer, scaler, device, epoch: int) -> flo
         nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)
         scaler.step(optimizer)
         scaler.update()
+        scheduler.step()
         total += loss.item()
         if (i + 1) % LOG_INTERVAL == 0:
             global_step = (epoch - 1) * len(loader) + i
-            print(f"  [{i+1}/{len(loader)}] loss={loss.item():.4f}")
-            wandb.log({"train_loss_step": loss.item()}, step=global_step)
+            lr = scheduler.get_last_lr()[0]
+            print(f"  [{i+1}/{len(loader)}] loss={loss.item():.4f}  lr={lr:.2e}")
+            wandb.log({"train_loss_step": loss.item(), "lr_step": lr}, step=global_step)
     return total / len(loader)
 
 
@@ -337,7 +342,10 @@ def main():
         filter(lambda p: p.requires_grad, model.parameters()),
         lr=LR, weight_decay=WEIGHT_DECAY,
     )
-    scheduler = CosineAnnealingLR(optimizer, T_max=EPOCHS, eta_min=LR * 0.01)
+    total_steps = EPOCHS * len(train_loader)
+    warmup = LinearLR(optimizer, start_factor=1e-3, end_factor=1.0, total_iters=WARMUP_STEPS)
+    cosine = CosineAnnealingLR(optimizer, T_max=total_steps - WARMUP_STEPS, eta_min=LR * 0.01)
+    scheduler = SequentialLR(optimizer, schedulers=[warmup, cosine], milestones=[WARMUP_STEPS])
     scaler = GradScaler("cuda", enabled=AMP)
 
 
@@ -345,9 +353,8 @@ def main():
     best_val = float("inf")
     for epoch in range(1, EPOCHS + 1):
         print(f"\nEpoch {epoch}/{EPOCHS}")
-        train_loss = train_one_epoch(model, train_loader, optimizer, scaler, device, epoch)
+        train_loss = train_one_epoch(model, train_loader, optimizer, scaler, scheduler, device, epoch)
         val_metric = validate(model, val_loader, device)
-        scheduler.step()
         print(f"  train_loss={train_loss:.4f}  val_si_rmse={val_metric:.4f}  lr={scheduler.get_last_lr()[0]:.2e}")
 
         wandb.log({"train_loss": train_loss, "val_si_rmse": val_metric, "lr": scheduler.get_last_lr()[0]}, step=epoch)

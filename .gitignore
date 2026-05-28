@@ -228,3 +228,4 @@ slurm-*.err
 
 # Outputs
 outputs/
+report/*

@@ -41,7 +41,7 @@ def denormalize_depth(depth_norm: np.ndarray) -> np.ndarray:
     return depth_norm * (_DEPTH_MAX_M - _DEPTH_MIN_M) + _DEPTH_MIN_M
 
 IMG_SIZE     = 560
-TRAIN_BATCH  = 8
+TRAIN_BATCH  = 32
 INFER_BATCH  = 32
 EPOCHS       = 3
 LR           = 1e-6

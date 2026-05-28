@@ -246,6 +246,8 @@ def train_one_epoch(model, loader, optimizer, scaler, scheduler, device, epoch: 
         optimizer.zero_grad()
         with autocast("cuda", enabled=AMP):
             preds = forward_train(model, images)
+            if torch.isnan(preds).any() or torch.isnan(depths).any():
+                print(f"  NaN at epoch {epoch} step {i}: preds={torch.isnan(preds).any().item()}  depths={torch.isnan(depths).any().item()}")
             loss  = silog_loss(preds, depths)
         scaler.scale(loss).backward()
         scaler.unscale_(optimizer)
@@ -348,6 +350,7 @@ def main():
     cosine = CosineAnnealingLR(optimizer, T_max=total_steps - WARMUP_STEPS, eta_min=LR * 0.01)
     scheduler = SequentialLR(optimizer, schedulers=[warmup, cosine], milestones=[WARMUP_STEPS])
     scaler = GradScaler("cuda", enabled=AMP)
+    print(f"total_steps={total_steps}  warmup_steps={WARMUP_STEPS}  initial_lr={scheduler.get_last_lr()[0]:.2e}")
 
 
     # Training loop

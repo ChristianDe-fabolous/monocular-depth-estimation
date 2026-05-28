@@ -29,6 +29,17 @@ DATA_ROOT       = TEST_DATA_ROOT
 _IMAGENET_MEAN = [0.485, 0.456, 0.406]
 _IMAGENET_STD  = [0.229, 0.224, 0.225]
 
+_DEPTH_MIN_M = 0.001   # 1 mm
+_DEPTH_MAX_M = 80.0    # 80 m
+
+
+def normalize_depth(depth: np.ndarray) -> np.ndarray:
+    return (np.clip(depth, _DEPTH_MIN_M, _DEPTH_MAX_M) - _DEPTH_MIN_M) / (_DEPTH_MAX_M - _DEPTH_MIN_M)
+
+
+def denormalize_depth(depth_norm: np.ndarray) -> np.ndarray:
+    return depth_norm * (_DEPTH_MAX_M - _DEPTH_MIN_M) + _DEPTH_MIN_M
+
 IMG_SIZE     = 560
 TRAIN_BATCH  = 8
 INFER_BATCH  = 32
@@ -165,9 +176,9 @@ class DepthDataset(Dataset):
             )
 
         image = self.normalize(TF.to_tensor(image))
-        depth = torch.from_numpy(depth).unsqueeze(0)
+        depth = torch.from_numpy(normalize_depth(depth)).unsqueeze(0)
         return image, depth
-    
+
 
 def silog_loss(pred: torch.Tensor, target: torch.Tensor, lambda_: float = 0.5, eps: float = 1e-6) -> torch.Tensor:
     valid = (target > eps) & (pred > eps)
@@ -207,7 +218,7 @@ def forward_train(model: DepthAnything3, images: torch.Tensor) -> torch.Tensor:
     depth = out["depth"] if isinstance(out, dict) else out
     if depth.dim() == 3:
         depth = depth.unsqueeze(1)
-    return F.interpolate(depth, size=(IMG_SIZE, IMG_SIZE), mode="bilinear", align_corners=False).clamp(min=1e-3)
+    return F.interpolate(depth, size=(IMG_SIZE, IMG_SIZE), mode="bilinear", align_corners=False).clamp(0.0, 1.0)
 
 
 # Train for one epoch
@@ -367,12 +378,12 @@ def main():
             assert depth.shape == (560, 560), f"Depth map size is {depth.shape} instead of 560x560"
 
             # Save depth map for baseline evaluation
-            submit_depth = depth.astype(np.float32)
+            submit_depth = denormalize_depth(depth.astype(np.float32))
             valid = np.isfinite(submit_depth) & (submit_depth > 0)
             if not np.all(valid):
                 fill = np.median(submit_depth[valid]) if np.any(valid) else 1.0
                 submit_depth = np.where(valid, submit_depth, fill).astype(np.float32)
-            submit_depth = np.clip(submit_depth, 1e-6, None)
+            submit_depth = np.clip(submit_depth, _DEPTH_MIN_M, _DEPTH_MAX_M)
 
             pred_name = p.stem.replace("_rgb", "") + ".npy"
             np.save(pred_dir / pred_name, submit_depth)

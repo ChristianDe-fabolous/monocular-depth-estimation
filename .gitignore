@@ -229,3 +229,4 @@ slurm-*.err
 # Outputs
 outputs/
 report/*
+*/pseudo_preview_20/*

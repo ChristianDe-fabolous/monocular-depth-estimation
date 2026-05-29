@@ -39,7 +39,7 @@ EPOCHS             = 15
 LR                 = 1e-4
 WEIGHT_DECAY       = 1e-2
 GRAD_CLIP          = 1.0
-WARMUP_STEPS       = 2000
+WARMUP_STEPS       = 100
 VAL_SPLIT          = 0.1
 VAL_INTERVAL_STEPS = int(os.getenv("VAL_INTERVAL_STEPS", 0))  # 0 = per epoch only
 NUM_WORKERS        = 0

@@ -236,6 +236,7 @@ def forward_train(model: DepthAnything3, images: torch.Tensor, debug: bool = Fal
     depth = out["depth"] if isinstance(out, dict) else out
     if depth.dim() == 3:
         depth = depth.unsqueeze(1)
+    depth = torch.nan_to_num(depth, nan=0.0, posinf=0.0, neginf=0.0)  # sky=inf → 0, excluded by valid mask in loss
     return F.interpolate(depth, size=(IMG_SIZE, IMG_SIZE), mode="bilinear", align_corners=False).clamp(1e-6, 1.0)
 
 

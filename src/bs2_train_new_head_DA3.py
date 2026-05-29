@@ -43,7 +43,7 @@ def denormalize_depth(depth_norm: np.ndarray) -> np.ndarray:
 IMG_SIZE     = 560
 TRAIN_BATCH  = 8    
 INFER_BATCH  = 32
-EPOCHS       = 3
+EPOCHS       = 15
 LR           = 1e-6
 WEIGHT_DECAY = 1e-2
 GRAD_CLIP    = 1.0
@@ -201,8 +201,7 @@ def load_model(device: torch.device, mode: Literal["full_head", "lora_dpt_blocks
             # Re-init head weights from scratch (kaiming for conv/linear, zeros for bias)
             for m in model.model.head.modules():
                 if isinstance(m, (nn.Conv2d, nn.Linear)):
-                    nn.init.kaiming_normal_(m.weight, nonlinearity="relu")
-                    m.weight.data *= 0.01  # prevent inf vs pretrained backbone scale
+                    nn.init.normal_(m.weight, mean=0.0, std=1e-4)  # small enough to avoid sigmoid saturation against pretrained backbone scale
                     if m.bias is not None:
                         nn.init.zeros_(m.bias)
                 elif isinstance(m, (nn.BatchNorm2d, nn.LayerNorm)):

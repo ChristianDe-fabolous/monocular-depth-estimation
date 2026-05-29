@@ -1,0 +1,61 @@
+#!/bin/bash
+#SBATCH --job-name=baseline3-scratch-head
+#SBATCH --account=cil_jobs
+#SBATCH --time=14:00:00
+#SBATCH --gpus=5060ti:1
+#SBATCH --mem=24G
+#SBATCH --output=/home/cdeubel/monocular-depth-estimation/logs/slurm-%x-%j.out
+#SBATCH --error=/home/cdeubel/monocular-depth-estimation/logs/slurm-%x-%j.err
+
+set -euo pipefail
+
+REPO_DIR="/home/cdeubel/monocular-depth-estimation"
+
+# Override at submission time, e.g.:
+#   CACHE_DIR=/work/scratch/nmeurer/outputs/baseline3/pseudo_labels_DA3-GIANT-1.1 sbatch scripts/baseline3_scratch_head.slurm
+#   CACHE_DIR=/work/scratch/nmeurer/outputs/baseline3/pseudo_labels_DA3-OTHER      sbatch scripts/baseline3_scratch_head.slurm
+CACHE_DIR="${CACHE_DIR:-/work/scratch/nmeurer/outputs/baseline3/pseudo_labels_DA3-GIANT-1.1}"
+
+cd "${REPO_DIR}"
+
+if [ -f "${REPO_DIR}/.env" ]; then
+    set -a
+    source "${REPO_DIR}/.env"
+    set +a
+fi
+
+export HF_HOME="${HF_HOME:-/work/scratch/cdeubel/hf_cache}"
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:-/work/scratch/cdeubel/cache}"
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
+mkdir -p "${HF_HOME}" "${XDG_CACHE_HOME}"
+
+. /etc/profile.d/modules.sh
+module add cuda/13.0
+
+source "${REPO_DIR}/.venv/bin/activate"
+PYTHON="${REPO_DIR}/.venv/bin/python"
+
+echo "Job started at $(date)"
+echo "Running on host $(hostname)"
+echo "Using pseudo-label cache: ${CACHE_DIR}"
+
+"${PYTHON}" -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('GPU:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'none')"
+
+"${PYTHON}" -u src/bs3_scratch_head_DA3_train.py \
+  --cache "${CACHE_DIR}"
+
+PRED_DIR=$(find /work/scratch/cdeubel/outputs/baseline3-scratch_head -maxdepth 2 -name "preds" | sort | tail -1)
+if [ -z "${PRED_DIR}" ]; then
+    echo "ERROR: could not locate pred dir under /work/scratch/cdeubel/outputs/baseline3-scratch_head"
+    exit 1
+fi
+
+SUBMISSION_CSV="${PRED_DIR}/../baseline3_scratch_head_submission.csv"
+
+"${PYTHON}" utils/create_submission.py \
+  --pred-dir "${PRED_DIR}" \
+  --out-csv "${SUBMISSION_CSV}"
+
+echo "Submission written to ${SUBMISSION_CSV}"
+echo "Job finished at $(date)"

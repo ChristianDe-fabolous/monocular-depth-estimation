@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=baseline3-lora-r16
-#SBATCH --account=cil_jobs
+#SBATCH --account=pmlr_jobs
 #SBATCH --time=14:00:00
 #SBATCH --gpus=5060ti:1
 #SBATCH --mem=24G

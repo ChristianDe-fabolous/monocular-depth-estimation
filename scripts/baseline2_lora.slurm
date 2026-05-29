@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=baseline2-scratch-head
-#SBATCH --account=3dv
+#SBATCH --job-name=baseline2-lora
+#SBATCH --account=cil_jobs
 #SBATCH --time=12:00:00
 #SBATCH --gpus=5060ti:1
 #SBATCH --mem=24G
@@ -12,10 +12,10 @@ set -euo pipefail
 USER_NAME="${USER:-cdeubel}"
 REPO_DIR="${REPO_DIR:-/home/${USER_NAME}/monocular-depth-estimation}"
 SCRATCH_ROOT="${SCRATCH_ROOT:-/work/scratch/${USER_NAME}}"
-RUN_NAME="baseline2-scratch_head"
+RUN_NAME="baseline2-lora_dpt_blocks"
 OUTPUT_DIR="${SCRATCH_ROOT}/outputs/baseline2/${RUN_NAME}"
 PRED_DIR="${OUTPUT_DIR}/preds"
-SUBMISSION_CSV="${OUTPUT_DIR}/baseline2_scratch_head_submission.csv"
+SUBMISSION_CSV="${OUTPUT_DIR}/baseline2_lora_submission.csv"
 
 cd "${REPO_DIR}"
 
@@ -30,6 +30,7 @@ export XDG_CACHE_HOME="${XDG_CACHE_HOME:-${SCRATCH_ROOT}/cache}"
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 export SCRATCH_ROOT
+export BS2_MODE=lora_dpt_blocks
 mkdir -p "${HF_HOME}" "${XDG_CACHE_HOME}"
 
 . /etc/profile.d/modules.sh
@@ -44,7 +45,7 @@ echo "Writing outputs to ${OUTPUT_DIR}"
 
 "${PYTHON}" -c "import torch; print('CUDA available:', torch.cuda.is_available()); print('GPU:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'none')"
 
-"${PYTHON}" -u src/bs2_train_new_head_DA3.py
+"${PYTHON}" -u src/bs2_finetune_lora_DA3.py
 
 "${PYTHON}" utils/create_submission.py \
   --pred-dir "${PRED_DIR}" \

@@ -8,7 +8,7 @@ from PIL import Image
 
 TRAIN_DIR = Path("/cluster/courses/cil/monocular-depth-estimation/train")
 PSEUDO_DIR = Path("/work/scratch/nmeurer/outputs/baseline3/pseudo_labels_DA3-GIANT-1.1")
-OUT_DIR = Path("/work/scratch/nmeurer/outputs/baseline3/pseudo_preview_20")
+OUT_DIR = Path("/work/scratch/cdeubel/outputs/baseline3/pseudo_preview_20")
 NUM = 20
 
 

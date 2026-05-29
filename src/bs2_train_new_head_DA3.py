@@ -413,4 +413,4 @@ def main():
 
     print(f"Predictions saved to {pred_dir}")
 if __name__ == "__main__":
-    ()
+    main()

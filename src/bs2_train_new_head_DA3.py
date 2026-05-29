@@ -50,7 +50,7 @@ GRAD_CLIP    = 1.0
 WARMUP_STEPS = 2000
 VAL_SPLIT    = 0.1
 NUM_WORKERS  = 0
-AMP          = False
+AMP          = True
 SEED         = 42
 LOG_INTERVAL = 20
 
@@ -185,7 +185,7 @@ def silog_loss(pred: torch.Tensor, target: torch.Tensor, lambda_: float = 0.5, e
     pred, target = pred.float(), target.float()  # float16 variance term can go negative → NaN in sqrt
     valid = (target > eps) & (pred > eps)
     if valid.sum() == 0:
-        return torch.zeros(1, device=pred.device, dtype=pred.dtype).squeeze()
+        return (pred * 0.0).mean()
     d = torch.log(pred[valid]) - torch.log(target[valid])
     return torch.sqrt((torch.mean(d ** 2) - lambda_ * torch.mean(d) ** 2).clamp(min=1e-8))
 
@@ -244,7 +244,7 @@ def train_one_epoch(model, loader, optimizer, scaler, scheduler, device, epoch: 
     for i, (images, depths) in enumerate(loader):
         images, depths = images.to(device), depths.to(device)
         optimizer.zero_grad()
-        with autocast("cuda", enabled=AMP):
+        with autocast("cuda", enabled=AMP, dtype=torch.bfloat16):
             preds = forward_train(model, images)
             if torch.isnan(preds).any() or torch.isnan(depths).any():
                 print(f"  NaN at epoch {epoch} step {i}: preds={torch.isnan(preds).any().item()}  depths={torch.isnan(depths).any().item()}")

@@ -44,10 +44,10 @@ IMG_SIZE     = 560
 TRAIN_BATCH  = 8    
 INFER_BATCH  = 32
 EPOCHS       = 15
-LR           = 1e-6
+LR           = 1e-4
 WEIGHT_DECAY = 1e-2
 GRAD_CLIP    = 1.0
-WARMUP_STEPS = 2000
+WARMUP_STEPS = 100
 VAL_SPLIT    = 0.1
 NUM_WORKERS  = 0
 AMP          = True
@@ -227,12 +227,9 @@ def load_model(device: torch.device, mode: Literal["full_head", "lora_dpt_blocks
 
 
 # Forward pass
-def forward_train(model: DepthAnything3, images: torch.Tensor, debug: bool = False) -> torch.Tensor:
+def forward_train(model: DepthAnything3, images: torch.Tensor) -> torch.Tensor:
     inp = images.unsqueeze(1)  # [B, C, H, W] -> [B, 1, C, H, W]
     out = model.model(inp)
-    if debug:
-        depth_raw = out["depth"] if isinstance(out, dict) else out
-        print(f"  [debug] inp={tuple(inp.shape)}  out_keys={list(out.keys()) if isinstance(out, dict) else type(out).__name__}  depth_raw shape={tuple(depth_raw.shape)}  min={depth_raw.min():.3f}  max={depth_raw.max():.3f}  nan={torch.isnan(depth_raw).any().item()}")
     depth = out["depth"] if isinstance(out, dict) else out
     if depth.dim() == 3:
         depth = depth.unsqueeze(1)
@@ -250,7 +247,7 @@ def train_one_epoch(model, loader, optimizer, scaler, scheduler, device, epoch: 
         images, depths = images.to(device), depths.to(device)
         optimizer.zero_grad()
         with autocast("cuda", enabled=AMP, dtype=torch.bfloat16):
-            preds = forward_train(model, images, debug=(i == 0 and epoch == 1))
+            preds = forward_train(model, images)
             if torch.isnan(preds).any() or torch.isnan(depths).any():
                 print(f"  NaN at epoch {epoch} step {i}: preds={torch.isnan(preds).any().item()}  depths={torch.isnan(depths).any().item()}")
             loss  = silog_loss(preds, depths)
@@ -416,4 +413,4 @@ def main():
 
     print(f"Predictions saved to {pred_dir}")
 if __name__ == "__main__":
-    main()
+    ()

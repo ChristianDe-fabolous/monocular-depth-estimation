@@ -202,6 +202,7 @@ def load_model(device: torch.device, mode: Literal["full_head", "lora_dpt_blocks
             for m in model.model.head.modules():
                 if isinstance(m, (nn.Conv2d, nn.Linear)):
                     nn.init.kaiming_normal_(m.weight, nonlinearity="relu")
+                    m.weight.data *= 0.01  # prevent inf vs pretrained backbone scale
                     if m.bias is not None:
                         nn.init.zeros_(m.bias)
                 elif isinstance(m, (nn.BatchNorm2d, nn.LayerNorm)):

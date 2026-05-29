@@ -112,14 +112,15 @@ class PseudoLabelDataset(Dataset):
 
 
 def load_val_manifest(manifest_path: Path, dataset: PseudoLabelDataset):
-    """Split dataset indices by manifest CSV (first column = image stem or filename)."""
+    """Split dataset indices by manifest CSV (uses rgb_path column)."""
     stems = set()
     with open(manifest_path) as f:
         reader = csv.reader(f)
-        next(reader, None)  # skip header
+        header = next(reader, None)
+        col = header.index("rgb_path") if header and "rgb_path" in header else 3
         for row in reader:
             if row:
-                stems.add(Path(row[0]).stem.replace("_rgb", "").replace("_depth", ""))
+                stems.add(Path(row[col]).stem.replace("_rgb", ""))
     val_idx, train_idx = [], []
     for i, p in enumerate(dataset.image_paths):
         (val_idx if p.stem.replace("_rgb", "") in stems else train_idx).append(i)

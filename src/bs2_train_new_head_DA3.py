@@ -50,7 +50,7 @@ GRAD_CLIP    = 1.0
 WARMUP_STEPS = 2000
 VAL_SPLIT    = 0.1
 NUM_WORKERS  = 0
-AMP          = True
+AMP          = False
 SEED         = 42
 LOG_INTERVAL = 20
 

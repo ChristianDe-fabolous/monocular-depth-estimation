@@ -185,7 +185,7 @@ def silog_loss(pred: torch.Tensor, target: torch.Tensor, lambda_: float = 0.5, e
     pred, target = pred.float(), target.float()  # float16 variance term can go negative → NaN in sqrt
     valid = (target > eps) & (pred > eps)
     if valid.sum() == 0:
-        return pred.sum() * 0.0
+        return torch.zeros(1, device=pred.device, dtype=pred.dtype).squeeze()
     d = torch.log(pred[valid]) - torch.log(target[valid])
     return torch.sqrt((torch.mean(d ** 2) - lambda_ * torch.mean(d) ** 2).clamp(min=1e-8))
 
@@ -349,7 +349,7 @@ def main():
     warmup = LinearLR(optimizer, start_factor=1e-3, end_factor=1.0, total_iters=WARMUP_STEPS)
     cosine = CosineAnnealingLR(optimizer, T_max=total_steps - WARMUP_STEPS, eta_min=LR * 0.01)
     scheduler = SequentialLR(optimizer, schedulers=[warmup, cosine], milestones=[WARMUP_STEPS])
-    scaler = GradScaler("cuda", enabled=AMP)
+    scaler = GradScaler("cuda", enabled=AMP, init_scale=256)
     print(f"total_steps={total_steps}  warmup_steps={WARMUP_STEPS}  initial_lr={scheduler.get_last_lr()[0]:.2e}")
 
 
